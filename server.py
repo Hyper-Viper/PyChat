@@ -47,8 +47,8 @@ cursor.execute("UPDATE users SET online=FALSE")
 db.commit()
 
 # ========== SERVER CONFIG ==========
-HOST = '127.0.0.1'
-PORT = 12345
+HOST = '::'
+PORT = 1060
 
 clients = {}     # {client_socket: (username, chat_name)}
 chats = {}       # {chat_name: [client_sockets]}
@@ -169,8 +169,8 @@ def handle_client(client_socket):
 
 
 # ========== MAIN SERVER ==========
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((HOST, PORT))
+server = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+server.bind((HOST, PORT, 0, 0))
 server.listen()
 
 print(f"[SERVER STARTED] Listening on {HOST}:{PORT}")
