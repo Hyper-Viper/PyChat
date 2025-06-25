@@ -1,8 +1,12 @@
 # Updated server.py to add client login system with password and online status check
 
 import socket
+import requests
 import threading
 import mysql.connector
+from flask import Flask, jsonify, request
+import subprocess
+import os
 
 # ========== MySQL SETUP ==========
 db = mysql.connector.connect(
@@ -47,8 +51,56 @@ cursor.execute("UPDATE users SET online=FALSE")
 db.commit()
 
 # ========== SERVER CONFIG ==========
-HOST = '::'
+HOST = '127.0.0.1'
 PORT = 1060
+
+ngrok_info = {}
+
+# Run ngrok
+p = subprocess.Popen(['ngrok', 'start', '--all'], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+
+def check_ngrok():
+    global ngrok_info
+    try:
+        res = requests.get("http://127.0.0.1:4040/api/tunnels")
+    except Exception:
+        check_ngrok()
+    tunnellist = res.json()["tunnels"]
+    tcp_url = ""
+    web_url = ""
+    for t in tunnellist:
+        if t["name"] == "pychattcp":
+            tcp_url = t["public_url"]
+            ngrok_info = {
+                "name": "pychattcp",
+                "public_url": tcp_url,
+                "config": t["config"]
+            }
+        elif t["name"] == "pychatweb":
+            web_url = t["public_url"]
+
+    print(f"[+] HTTP Tunnel: {web_url} -> http://127.0.0.1:3300")
+    print(f"[+] TCP Tunnel: {tcp_url} -> http://127.0.0.1:1060")
+
+ngrok_thread = threading.Thread(target=check_ngrok, daemon=True)
+ngrok_thread.start()
+
+# Create Flask app
+app = Flask(__name__)
+
+@app.route("/", methods=['GET'])
+def get_info():
+    if request.headers["accept"] == '*/*':
+        return jsonify(ngrok_info)
+    else:
+        return '<script>close();</script>'
+
+def run_flask():
+    app.run(port=3300)
+
+# Start Flask in background
+flask_thread = threading.Thread(target=run_flask, daemon=True)
+flask_thread.start()
 
 clients = {}     # {client_socket: (username, chat_name)}
 chats = {}       # {chat_name: [client_sockets]}
@@ -169,14 +221,17 @@ def handle_client(client_socket):
 
 
 # ========== MAIN SERVER ==========
-server = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-server.bind((HOST, PORT, 0, 0))
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.bind((HOST, PORT))
 server.listen()
 
 print(f"[SERVER STARTED] Listening on {HOST}:{PORT}")
 
-while True:
-    client_socket, addr = server.accept()
-    print(f"[NEW CONNECTION] {addr}")
-    thread = threading.Thread(target=handle_client, args=(client_socket,))
-    thread.start()
+try:
+    while True:
+        client_socket, addr = server.accept()
+        print(f"[NEW CONNECTION] {addr}")
+        thread = threading.Thread(target=handle_client, args=(client_socket,))
+        thread.start()
+except Exception:
+    p.terminate()
