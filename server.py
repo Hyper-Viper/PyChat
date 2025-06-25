@@ -61,10 +61,7 @@ p = subprocess.Popen(['ngrok', 'start', '--all'], stdout=subprocess.DEVNULL, std
 
 def check_ngrok():
     global ngrok_info
-    try:
-        res = requests.get("http://127.0.0.1:4040/api/tunnels")
-    except Exception:
-        check_ngrok()
+    res = requests.get("http://127.0.0.1:4040/api/tunnels")
     tunnellist = res.json()["tunnels"]
     tcp_url = ""
     web_url = ""
@@ -78,12 +75,14 @@ def check_ngrok():
             }
         elif t["name"] == "pychatweb":
             web_url = t["public_url"]
+    
+    if tcp_url == "" or web_url == "":
+        check_ngrok()
+    else:
+        print(f"[+] HTTP Tunnel: {web_url} -> http://127.0.0.1:3300")
+        print(f"[+] TCP Tunnel: {tcp_url} -> http://127.0.0.1:1060")
 
-    print(f"[+] HTTP Tunnel: {web_url} -> http://127.0.0.1:3300")
-    print(f"[+] TCP Tunnel: {tcp_url} -> http://127.0.0.1:1060")
-
-ngrok_thread = threading.Thread(target=check_ngrok, daemon=True)
-ngrok_thread.start()
+check_ngrok()
 
 # Create Flask app
 app = Flask(__name__)
@@ -131,7 +130,7 @@ def save_message(chat_name, sender, content):
     db.commit()
 
 
-def broadcast(message, chat_name, sender_socket):
+def broadcast(message, chat_name):
     if chat_name in chats:
         for client in chats[chat_name]:
             try:
@@ -179,11 +178,15 @@ def handle_client(client_socket):
                 break
 
             if data.startswith("/join"):
-                _, username, chat = data.split("|")
+                _, username, chat, lchat = data.split("|")
                 ensure_chat_exists(chat)
                 clients[client_socket] = (username, chat)
                 if client_socket not in chats.setdefault(chat, []):
-                    chats[chat].append(client_socket)
+                    if not lchat:
+                        chats[chat].append(client_socket)
+                    else:
+                        chats[lchat].remove(client_socket)
+                        chats[chat].append(client_socket)
                 print(f"[+] {username} joined chat '{chat}'")
 
                 # Send chat history
@@ -196,7 +199,7 @@ def handle_client(client_socket):
             username, chat, msg = data.split("|", 2)
             save_message(chat, username, msg)
             full_msg = f"{username}: {msg}"
-            broadcast(full_msg, chat, client_socket)
+            broadcast(full_msg, chat)
     except ConnectionResetError:
         print(f"[!] {username} disconnected abruptly.")
     except Exception as e:
@@ -231,7 +234,7 @@ try:
     while True:
         client_socket, addr = server.accept()
         print(f"[NEW CONNECTION] {addr}")
-        thread = threading.Thread(target=handle_client, args=(client_socket,))
+        thread = threading.Thread(target=handle_client, args=(client_socket,), daemon=True)
         thread.start()
 except Exception:
     p.terminate()
