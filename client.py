@@ -1,27 +1,38 @@
 import socket
+import requests
 import threading
 import tkinter as tk
 from tkinter import simpledialog, scrolledtext, messagebox
 
-HOST = '2405:201:680e:d20d:a96f:f41f:4554:2a05'
-PORT = 1060
 
-client = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
-client.connect((HOST, PORT, 0, 0))
+res = requests.get("https://tight-phoenix-correctly.ngrok-free.app")
+HOST, PORT = res.json()["public_url"].replace("tcp://", "").split(":")
+PORT = int(PORT)
+
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect((HOST, PORT))
 print(client)
 
 # Prompt for credentials
-name = str(simpledialog.askstring("Login", "Enter your username:")).strip()
-if not name:
-    messagebox.showerror("Error", "Username cannot be empty.")
-    exit()
-if not name.isalnum():
-    messagebox.showerror("Error", "Username can only have alphanumeric characters.")
-    exit()
+usr = simpledialog.askstring("Login", "Enter your username:")
+name = str(usr).strip()
 
-password = simpledialog.askstring("Login", "Enter your password:", show="*")
-if password is None:
-    messagebox.showerror("Error", "Password cannot be empty.")
+if usr is not None:
+    if name == "":
+        messagebox.showerror("Error", "Username cannot be empty.")
+        exit()
+    else:
+        if not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
+            messagebox.showerror("Error", "Username can only have alphanumeric characters.")
+            exit()
+        password = simpledialog.askstring("Login", "Enter your password:", show="*")
+        if password is not None:
+            if password == "":
+                messagebox.showerror("Error", "Password cannot be empty.")
+                exit()
+        else:
+            exit()
+else:
     exit()
 
 # Authenticate
