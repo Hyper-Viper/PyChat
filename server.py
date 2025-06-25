@@ -1,5 +1,3 @@
-# Updated server.py to add client login system with password and online status check
-
 import socket
 import requests
 import threading
