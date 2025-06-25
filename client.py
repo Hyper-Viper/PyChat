@@ -11,7 +11,6 @@ PORT = int(PORT)
 
 client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client.connect((HOST, PORT))
-print(client)
 
 # Prompt for credentials
 usr = simpledialog.askstring("Login", "Enter your username:")
@@ -110,23 +109,6 @@ def send_msg(event=None):
         client.send(full_msg.encode())
         msg_entry.delete(0, tk.END)
 
-# Chat select
-def join_selected_chat(event=None):
-    global current_chat
-    selection = chat_listbox.curselection()
-    if not selection:
-        return
-    selected = chat_listbox.get(selection[0])
-    current_chat = selected
-    messages.config(state='normal')
-    messages.delete('1.0', tk.END)
-    messages.insert(tk.END, f"Welcome to {selected}\n", 'welcome')
-    messages.tag_config('welcome', foreground='#ff7b72', justify='center')
-    messages.config(state='disabled')
-    join_msg = f"/join|{name}|{selected}"
-    client.send(join_msg.encode())
-    window.title(f"PyChat: {selected}")
-
 # Receive messages
 def receive():
     while True:
@@ -152,6 +134,23 @@ def receive():
             messages.yview(tk.END)
         except:
             break
+
+# Chat select
+def join_selected_chat(event=None):
+    global current_chat
+    selection = chat_listbox.curselection()
+    if not selection:
+        return
+    selected = chat_listbox.get(selection[0])
+    messages.config(state='normal')
+    messages.delete('1.0', tk.END)
+    messages.insert(tk.END, f"Welcome to {selected}\n", 'welcome')
+    messages.tag_config('welcome', foreground='#ff7b72', justify='center')
+    messages.config(state='disabled')
+    join_msg = f"/join|{name}|{selected}|{current_chat or ''}"
+    client.send(join_msg.encode())
+    window.title(f"PyChat: {selected}")
+    current_chat = selected
 
 default_chats = ["General", "Gaming", "Study", "Music", "Projects"]
 for chat in default_chats:
