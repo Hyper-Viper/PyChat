@@ -1,0 +1,11 @@
+version: "3"
+agent:
+    authtoken: 2yy1hIon3xkK7dkAVtjNvPz8zpB_7SVJcfWt3JzMVroMvJuWC
+tunnels:
+    pychatweb:
+        proto: http
+        addr: 3300
+        url: https://tight-phoenix-correctly.ngrok-free.app:443
+    pychattcp:
+        proto: tcp
+        addr: 1060
