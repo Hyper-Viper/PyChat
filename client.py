@@ -1,3 +1,4 @@
+import sys
 import socket
 import requests
 import threading
@@ -19,20 +20,20 @@ name = str(usr).strip()
 if usr is not None:
     if name == "":
         messagebox.showerror("Error", "Username cannot be empty.")
-        exit()
+        sys.exit()
     else:
         if not name.replace("_", "").replace("-", "").replace(".", "").isalnum():
             messagebox.showerror("Error", "Username can only have alphanumeric characters.")
-            exit()
+            sys.exit()
         password = simpledialog.askstring("Login", "Enter your password:", show="*")
         if password is not None:
             if password == "":
                 messagebox.showerror("Error", "Password cannot be empty.")
-                exit()
+                sys.exit()
         else:
-            exit()
+            sys.exit()
 else:
-    exit()
+    sys.exit()
 
 # Authenticate
 client.send(f"/auth|{name}|{password}".encode())
@@ -41,7 +42,7 @@ response = client.recv(1024).decode()
 if not response.startswith("LOGIN_SUCCESS"):
     messagebox.showerror("Login Failed", response)
     client.close()
-    exit()
+    sys.exit()
 
 current_chat = None
 
