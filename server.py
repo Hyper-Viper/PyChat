@@ -4,9 +4,7 @@ import threading
 import mysql.connector
 from flask import Flask, jsonify, request
 import subprocess
-import os
 
-# ========== MySQL SETUP ==========
 db = mysql.connector.connect(
     host="localhost",
     user="root",
@@ -17,7 +15,6 @@ cursor = db.cursor()
 cursor.execute("CREATE DATABASE IF NOT EXISTS pychat")
 cursor.execute("USE pychat")
 
-# Create tables if they don't exist
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS chats (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -48,13 +45,11 @@ cursor.execute("UPDATE users SET online=FALSE")
 
 db.commit()
 
-# ========== SERVER CONFIG ==========
 HOST = '127.0.0.1'
 PORT = 1060
 
 ngrok_info = {}
 
-# Run ngrok
 p = subprocess.Popen(['ngrok', 'start', '--all'], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 def check_ngrok():
@@ -82,7 +77,6 @@ def check_ngrok():
 
 check_ngrok()
 
-# Create Flask app
 app = Flask(__name__)
 
 @app.route("/", methods=['GET'])
@@ -95,15 +89,12 @@ def get_info():
 def run_flask():
     app.run(port=3300)
 
-# Start Flask in background
 flask_thread = threading.Thread(target=run_flask, daemon=True)
 flask_thread.start()
 
 clients = {}     # {client_socket: (username, chat_name)}
 chats = {}       # {chat_name: [client_sockets]}
 
-
-# ========== UTILITIES ==========
 def ensure_chat_exists(chat_name):
     cursor.execute("SELECT id FROM chats WHERE name = %s", (chat_name,))
     if not cursor.fetchone():
@@ -140,6 +131,7 @@ def broadcast(message, chat_name):
 
 
 def handle_client(client_socket):
+    username = ''
     try:
         auth = client_socket.recv(1024).decode()
         if not auth.startswith("/auth|"):
@@ -149,7 +141,6 @@ def handle_client(client_socket):
 
         _, username, password = auth.split("|")
 
-        # Check if user exists
         cursor.execute("SELECT password, online FROM users WHERE username = %s", (username,))
         row = cursor.fetchone()
         if row:
@@ -174,7 +165,6 @@ def handle_client(client_socket):
             data = client_socket.recv(1024).decode()
             if not data:
                 break
-
             if data.startswith("/join"):
                 _, username, chat, lchat = data.split("|")
                 ensure_chat_exists(chat)
@@ -187,7 +177,6 @@ def handle_client(client_socket):
                         chats[chat].append(client_socket)
                 print(f"[+] {username} joined chat '{chat}'")
 
-                # Send chat history
                 history = load_chat_history(chat)
                 for sender, msg in history:
                     formatted = f"{sender}: {msg}\n"
@@ -210,7 +199,6 @@ def handle_client(client_socket):
                 chats[chat].remove(client_socket)
             del clients[client_socket]
 
-        # ✅ Mark user offline even if they crash
         if username:
             try:
                 cursor.execute("UPDATE users SET online = FALSE WHERE username = %s", (username,))
@@ -220,8 +208,6 @@ def handle_client(client_socket):
 
         client_socket.close()
 
-
-# ========== MAIN SERVER ==========
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind((HOST, PORT))
 server.listen()
